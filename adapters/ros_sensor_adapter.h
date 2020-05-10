@@ -6,6 +6,7 @@
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/Twist.h"
 #include "std_msgs/Float64MultiArray.h"
+#include "gazebo_msgs/LinkStates.h"
 
 #include <music.hh>
 #include <mpi.h>
@@ -21,7 +22,7 @@ const double DEFAULT_SENSOR_UPDATE_RATE = 30;
 const double DEFAULT_RTF = 1.0;
 const std::string DEFAULT_ROS_NODE_NAME = "ros_sensor_node";
 
-enum msg_types {Laserscan, Twist, Float64MultiArray}; 
+enum msg_types {Laserscan, Twist, Float64MultiArray, LinkStates}; 
 
 class RosSensorAdapter
 {
@@ -38,6 +39,7 @@ class RosSensorAdapter
         ros::Subscriber subscriber;
         std::string ros_node_name;
         double rtf;
+        std::string link_name;
 
         MPI::Intracomm comm;
         MUSIC::Setup* setup;
@@ -58,5 +60,6 @@ class RosSensorAdapter
         void laserscanCallback(const sensor_msgs::LaserScanConstPtr& msg);
         void twistCallback(const geometry_msgs::Twist msg);
         void float64MultiArrayCallback(const std_msgs::Float64MultiArray msg);
+        void gazeboLinkStatesAzzCallback(const gazebo_msgs::LinkStates &msg);
 
 };

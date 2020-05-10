@@ -2,6 +2,9 @@
 
 #include "rtclock.h"
 
+#include <math.h>
+#define PI 3.14159265
+
 static void*
 ros_thread(void* arg)
 {
@@ -81,6 +84,9 @@ RosSensorAdapter::initROS(int argc, char** argv)
         case Float64MultiArray:
             subscriber = n.subscribe(ros_topic, 1000, &RosSensorAdapter::float64MultiArrayCallback, this);
             break;
+        case LinkStates:
+            subscriber = n.subscribe(ros_topic, 1000, &RosSensorAdapter::gazeboLinkStatesAzzCallback, this);
+            break;
     }
 }
 
@@ -107,6 +113,9 @@ RosSensorAdapter::initMUSIC(int argc, char** argv)
     }
     else if (_msg_type.compare("FloatArray") == 0){
         msg_type = Float64MultiArray;
+    }
+    else if (_msg_type.compare("LinkStates") == 0){
+        msg_type = LinkStates;
     }
     else
     {
@@ -278,6 +287,39 @@ RosSensorAdapter::float64MultiArrayCallback(const std_msgs::Float64MultiArray ms
     }
 
     pthread_mutex_unlock(&data_mutex);    
+}
+
+void 
+RosSensorAdapter::gazeboLinkStatesAzzCallback(const gazebo_msgs::LinkStates &msg)
+{
+    pthread_mutex_lock(&data_mutex);
+
+    int link_indx = -1;
+    for (int i = 0; i < msg.name.size(); ++i)
+    {
+        if (msg.name[i] == link_name)
+           //ROS_INFO("msg name: [%s]\n", msg.name[i].c_str());
+           link_indx = i;
+    }
+
+   if (link_indx == -1)
+   {
+      ROS_ERROR_STREAM("Failed to find link "<<link_name<<".");
+      return;
+   }
+
+   //ROS_INFO("indx: %d", link_indx);
+   //ROS_INFO("orientation- x: %f, y: %f, z: %f, w: %f", msg.pose[link_indx].orientation.x, msg.pose[link_indx].orientation.y, msg.pose[link_indx].orientation.z, msg.pose[link_indx].orientation.w);
+
+   //Calculating azz - caculating rotation angle assuming the rotation is around the z axis
+   double theta = 2.0 * atan2( sqrt(pow(msg.pose[link_indx].orientation.x,2) + 
+    pow(msg.pose[link_indx].orientation.y,2) + pow(msg.pose[link_indx].orientation.z,2)),
+    msg.pose[link_indx].orientation.w) - PI/2;
+
+    data[0] = theta;  
+
+
+   pthread_mutex_unlock(&data_mutex);    
 }
 
 void RosSensorAdapter::finalize(){
