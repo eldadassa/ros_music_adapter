@@ -71,13 +71,18 @@ RosCommandAdapter::initROS(int argc, char** argv)
 
     ros::NodeHandle n;
     switch (msg_type)
-    {   
+    {
+        case Float64:
+        {
+            publisher = n.advertise<std_msgs::Float64>(ros_topic, 1);
+            break;
+        }
         case Float64MultiArray:
         {
             publisher = n.advertise<std_msgs::Float64MultiArray>(ros_topic, 1);
             break;
         }
-        case Twist: 
+        case Twist:
         {
             publisher = n.advertise<geometry_msgs::Twist>(ros_topic, 1);
             break;
@@ -95,15 +100,15 @@ RosCommandAdapter::initMUSIC(int argc, char** argv)
     setup->config("command_rate", &command_rate);
     setup->config("music_timestep", &timestep);
     setup->config("rtf", &rtf);
-    
+
     setup->config("message_mapping_filename", &mapping_filename);
     readMappingFile();
-    
+
     MUSIC::ContInputPort* port_in = setup->publishContInput ("in"); //TODO: read portname from file
-    
+
     comm = setup->communicator ();
-    int rank = comm.Get_rank ();       
-    int nProcesses = comm.Get_size (); 
+    int rank = comm.Get_rank ();
+    int nProcesses = comm.Get_size ();
     if (nProcesses > 1)
     {
         std::cout << "ERROR: num processes (np) not equal 1" << std::endl;
@@ -120,14 +125,14 @@ RosCommandAdapter::initMUSIC(int argc, char** argv)
         std::cout << "ERROR: Port-width not defined" << std::endl;
         comm.Abort (1);
     }
-    
+
     datasize = width;
     data = new double[datasize+1]; // +1 for the leading zero needed for unspecified fields in the message
     for (size_t i = 0; i < datasize + 1; ++i)
     {
         data[i] = 0.;
     }
-         
+
     // Declare where in memory to put data
     MUSIC::ArrayData dmap (&data[1],
       		 MPI::DOUBLE,
@@ -136,7 +141,7 @@ RosCommandAdapter::initMUSIC(int argc, char** argv)
     port_in->map (&dmap, 0., 1, false);
 }
 
-void 
+void
 RosCommandAdapter::readMappingFile()
 {
     Json::Reader json_reader;
@@ -151,11 +156,11 @@ RosCommandAdapter::readMappingFile()
         json_mapping_ += line;
     }
     mapping_file.close();
-    
+
     if ( !json_reader.parse(json_mapping_, json_mapping))
     {
         // report to the user the failure and their locations in the document.
-        std::cout   << "WARNING: ROS Command Adapter: Failed to parse file \"" << mapping_filename << "\"\n" 
+        std::cout   << "WARNING: ROS Command Adapter: Failed to parse file \"" << mapping_filename << "\"\n"
                     << json_mapping_ << " It has to be in JSON format.\n"
                     << json_reader.getFormattedErrorMessages();
         return;
@@ -164,7 +169,12 @@ RosCommandAdapter::readMappingFile()
     {
         std::string _msg_type;
         _msg_type = json_mapping["message_type"].asString();
-        if (_msg_type.compare("Float64MultiArray") == 0)
+        if (_msg_type.compare("Float64") == 0)
+        {
+            msg_type = Float64;
+            // no mapping needed
+        }
+        else if (_msg_type.compare("Float64MultiArray") == 0)
         {
             msg_type = Float64MultiArray;
             // no mapping needed
@@ -176,7 +186,7 @@ RosCommandAdapter::readMappingFile()
                 "angular.x", "angular.y", "angular.z"
             };
             const size_t n_components = sizeof(components) / sizeof(components[0]);
-            
+
             msg_type = Twist;
             msg_map = new int[n_components];
 
@@ -189,7 +199,7 @@ RosCommandAdapter::readMappingFile()
             max_msg = 0;
             min_msg = json_mapping["min"].asDouble();
             max_msg = json_mapping["max"].asDouble();
-            
+
             if (max_msg == 0 && min_msg == 0)
             {
                 std::cout << "WARNING: min and max of Twist msg is 0" << std::endl;
@@ -209,7 +219,15 @@ void
 RosCommandAdapter::sendROS ()
 {
   switch (msg_type)
-  {   
+  {
+      case Float64:
+      {
+          std_msgs::Float64 msg;
+          msg.data = data[1];
+          publisher.publish(msg);
+          break;
+      }
+
       case Float64MultiArray:
       {
           std_msgs::Float64MultiArray msg;
@@ -221,7 +239,7 @@ RosCommandAdapter::sendROS ()
           break;
       }
 
-      case Twist: 
+      case Twist:
       {
           for (int i = 1; i < datasize+1; ++i)
           {
@@ -236,7 +254,7 @@ RosCommandAdapter::sendROS ()
           }
 
           geometry_msgs::Twist msg;
-          
+
           msg.linear.x = data[msg_map[0]];
           msg.linear.y = data[msg_map[1]];
           msg.linear.z = data[msg_map[2]];
@@ -244,7 +262,7 @@ RosCommandAdapter::sendROS ()
           msg.angular.x = data[msg_map[3]];
           msg.angular.y = data[msg_map[4]];
           msg.angular.z = data[msg_map[5]];
-      
+
           publisher.publish(msg);
           break;
       }
@@ -259,7 +277,7 @@ RosCommandAdapter::runROSMUSIC()
 
     runtime = new MUSIC::Runtime (setup, timestep);
     ros::spinOnce();
-    
+
     for (int t = 0; runtime->time() < stoptime; t++)
     {
         sendROS();
@@ -307,14 +325,14 @@ RosCommandAdapter::runROS()
 
 }
 
-void 
+void
 RosCommandAdapter::runMUSIC()
 {
     std::cout << "running command adapter with update rate of " << command_rate << std::endl;
     RTClock clock(timestep / rtf);
 
     runtime = new MUSIC::Runtime (setup, timestep);
-    
+
     for (int t = 0; runtime->time() < stoptime; t++)
     {
         clock.sleepNext();
@@ -346,5 +364,3 @@ void RosCommandAdapter::saveRuntime(double rt)
     data_file.close();
 }
 #endif
-
-

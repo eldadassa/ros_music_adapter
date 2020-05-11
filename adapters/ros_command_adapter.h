@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include "geometry_msgs/Twist.h"
 #include "std_msgs/Float64MultiArray.h"
+#include "std_msgs/Float64.h"
 
 #include <music.hh>
 #include <mpi.h>
@@ -15,9 +16,9 @@
 #include <pthread.h>
 
 #define DEBUG_OUTPUT false
-#define MEASUREMENT_OUTPUT false 
+#define MEASUREMENT_OUTPUT false
 
-enum msg_types {Float64MultiArray, Twist};
+enum msg_types {Float64, Float64MultiArray, Twist};
 
 const double DEFAULT_TIMESTEP = 1e-3;
 const double DEFAULT_COMMAND_RATE = 10;
@@ -52,7 +53,7 @@ class RosCommandAdapter
         double rtf;
 
         string mapping_filename;
-        Json::Value json_mapping; 
+        Json::Value json_mapping;
         msg_types msg_type;
         int* msg_map;
 	    double min_msg;

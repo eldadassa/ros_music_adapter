@@ -36,7 +36,7 @@ class LinearReadoutDecoder : MUSIC::EventHandlerGlobalIndex{
 	  Event (double t_, int id_) : t (t_), id (id_) { }
 	  bool operator< (const Event& other) const { return t > other.t; }
 	};
-	
+
         MPI::Intracomm comm;
         MUSIC::Runtime* runtime;
         double stoptime;
@@ -51,7 +51,7 @@ class LinearReadoutDecoder : MUSIC::EventHandlerGlobalIndex{
         unsigned int num_spikes0;
 
         string weights_filename;
-        Json::Value json_readout_weights; 
+        Json::Value json_readout_weights;
         double* readout_weights;
         gsl_matrix_view mat_readout_weights;
 
@@ -66,5 +66,3 @@ class LinearReadoutDecoder : MUSIC::EventHandlerGlobalIndex{
         void readWeightsFile();
         void operator() (double t, MUSIC::GlobalIndex id );
 };
-
-
