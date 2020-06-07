@@ -116,6 +116,7 @@ RosSensorAdapter::initMUSIC(int argc, char** argv)
     }
     else if (_msg_type.compare("LinkStates") == 0){
         msg_type = LinkStates;
+        setup->config("link_name", &link_name);
     }
     else
     {
@@ -127,8 +128,8 @@ RosSensorAdapter::initMUSIC(int argc, char** argv)
     MUSIC::ContOutputPort* port_out = setup->publishContOutput ("out");
 
     comm = setup->communicator ();
-    int rank = comm.Get_rank ();       
-    int nProcesses = comm.Get_size (); 
+    int rank = comm.Get_rank ();
+    int nProcesses = comm.Get_size ();
     if (nProcesses > 1)
     {
         std::cout << "ERROR: num processes (np) not equal 1" << std::endl;
@@ -145,13 +146,13 @@ RosSensorAdapter::initMUSIC(int argc, char** argv)
         std::cout << "ERROR: Port-width not defined" << std::endl;
         comm.Abort (1);
     }
-    
-    data = new double[datasize]; 
+
+    data = new double[datasize];
     for (unsigned int i = 0; i < datasize; ++i)
     {
         data[i] = 0.;
     }
-         
+
     // Declare where in memory to put data
     MUSIC::ArrayData dmap (data,
       		 MPI::DOUBLE,
@@ -165,7 +166,7 @@ RosSensorAdapter::runROSMUSIC()
 {
     std::cout << "running sensor adapter with update rate of " << sensor_update_rate << std::endl;
     RTClock clock( 1. / (sensor_update_rate * rtf) );
-    
+
     ros::spinOnce();
     runtime = new MUSIC::Runtime (setup, timestep);
 
@@ -181,7 +182,7 @@ RosSensorAdapter::runROSMUSIC()
         std::cout << std::endl;
 #endif
 
-        clock.sleepNext(); 
+        clock.sleepNext();
         ros::spinOnce();
         runtime->tick();
     }
@@ -219,17 +220,17 @@ RosSensorAdapter::runROS()
    }
 }
 
-void 
+void
 RosSensorAdapter::runMUSIC()
 {
     std::cout << "running sensor adapter with update rate of " << sensor_update_rate << std::endl;
     RTClock clock(timestep / rtf);
 
     runtime = new MUSIC::Runtime (setup, timestep);
-    
+
     for (int t = 0; runtime->time() < stoptime; t++)
     {
-        clock.sleepNext(); 
+        clock.sleepNext();
     	pthread_mutex_lock(&data_mutex);
         runtime->tick();
 	    pthread_mutex_unlock(&data_mutex);
@@ -253,7 +254,7 @@ RosSensorAdapter::laserscanCallback(const sensor_msgs::LaserScanConstPtr& msg)
 	data[i] = ((msg->ranges.at(i) - msg->range_min) / (msg->range_max - msg->range_min) ) * 2 - 1;
       }
     }
-    pthread_mutex_unlock(&data_mutex);    
+    pthread_mutex_unlock(&data_mutex);
 }
 
 void
@@ -273,7 +274,7 @@ RosSensorAdapter::twistCallback(const geometry_msgs::Twist msg)
 
     }
 
-    pthread_mutex_unlock(&data_mutex);    
+    pthread_mutex_unlock(&data_mutex);
 }
 
 void
@@ -286,10 +287,10 @@ RosSensorAdapter::float64MultiArrayCallback(const std_msgs::Float64MultiArray ms
         data[i] = msg.data[i];
     }
 
-    pthread_mutex_unlock(&data_mutex);    
+    pthread_mutex_unlock(&data_mutex);
 }
 
-void 
+void
 RosSensorAdapter::gazeboLinkStatesAzzCallback(const gazebo_msgs::LinkStates &msg)
 {
     pthread_mutex_lock(&data_mutex);
@@ -304,28 +305,27 @@ RosSensorAdapter::gazeboLinkStatesAzzCallback(const gazebo_msgs::LinkStates &msg
 
    if (link_indx == -1)
    {
-      ROS_ERROR_STREAM("Failed to find link "<<link_name<<".");
-      return;
+    //  ROS_ERROR_STREAM("Failed to find link "<<link_name<<".");
+     std::cout <<"Failed to find link "<<link_name<<"."<<std::endl;
+     comm.Abort (1);
+      //return;
    }
 
    //ROS_INFO("indx: %d", link_indx);
    //ROS_INFO("orientation- x: %f, y: %f, z: %f, w: %f", msg.pose[link_indx].orientation.x, msg.pose[link_indx].orientation.y, msg.pose[link_indx].orientation.z, msg.pose[link_indx].orientation.w);
 
    //Calculating azz - caculating rotation angle assuming the rotation is around the z axis
-   double theta = 2.0 * atan2( sqrt(pow(msg.pose[link_indx].orientation.x,2) + 
+   double theta = 2.0 * atan2( sqrt(pow(msg.pose[link_indx].orientation.x,2) +
     pow(msg.pose[link_indx].orientation.y,2) + pow(msg.pose[link_indx].orientation.z,2)),
     msg.pose[link_indx].orientation.w) - PI/2;
 
-    data[0] = theta;  
+    data[0] = theta;
 
 
-   pthread_mutex_unlock(&data_mutex);    
+   pthread_mutex_unlock(&data_mutex);
 }
 
 void RosSensorAdapter::finalize(){
     runtime->finalize();
     delete runtime;
 }
-
-
-
