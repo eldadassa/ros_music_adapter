@@ -6,7 +6,7 @@
 
 #define BENCHMARK_ROS_CALLBACK 0
 #define DEBUG_TICK 0
-#define EVENT_TRANSFORMATION 0
+#define DEBUG_EVENT_TRANSFORMATION 0
 
 #if BENCHMARK_ROS_CALLBACK
 #include <time.h>
@@ -169,17 +169,20 @@ RosEventSensorAdapter::eventArrayCallback(const dvs_msgs::EventArray msg) {
 	for (int i = 0; i < msg.events.size(); i++) {
 		dvs_msgs::Event event = msg.events[i];
 		int index = event.y * msg.width + event.x;
+
+//		if (i==0)
+//		   std::cout << "event index " << index << std::endl;
 		// TODO respect polarity?
-#if DEBUG_EVENT_TRANSFORMATION
-		std::cout << "event: ts = " << last_tick_time << ", index = " << index << std::endl;
-#endif
-		port_out->insertEvent(last_tick_time, MUSIC::GlobalIndex(index));
+//#if DEBUG_EVENT_TRANSFORMATION
+//		std::cout << "event: ts = " << last_tick_time << ", index = " << index << std::endl;
+//#endif
+		port_out->insertEvent(last_tick_time+0.002, MUSIC::GlobalIndex(index));
 	}
 #if BENCHMARK_ROS_CALLBACK
 	clock_gettime(CLOCK_MONOTONIC, &finish);
 	elapsed = (finish.tv_sec - start.tv_sec);
 	elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-	std::cout << "ros_event_sensor_adapter: elapsed time = " << elapsed << std::endl;
+	std::cout << "ros_event_sensor_adapter: elapsed time = " << elapsed <<" last_tick_time: "<< last_tick_time<<std::endl;
 #endif
 }
 
@@ -187,6 +190,3 @@ void RosEventSensorAdapter::finalize() {
 	runtime->finalize();
 	delete runtime;
 }
-
-
-
