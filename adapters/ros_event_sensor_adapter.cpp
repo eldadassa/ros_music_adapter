@@ -80,7 +80,8 @@ RosEventSensorAdapter::initMUSIC(int argc, char** argv) {
 	setup->config("ros_node_name", &ros_node_name);
 	setup->config("rtf", &rtf);
 
-	port_out = setup->publishEventOutput("out");
+	port_out_pos = setup->publishEventOutput("out_pos");
+	port_out_neg = setup->publishEventOutput("out_neg");
 
 	comm = setup->communicator();
 	int rank = comm.Get_rank();
@@ -91,8 +92,10 @@ RosEventSensorAdapter::initMUSIC(int argc, char** argv) {
 	}
 
 	// map linear index to event out port
-	MUSIC::LinearIndex l_index_out(0, port_out->width());
-	port_out->map(&l_index_out, MUSIC::Index::GLOBAL, 1);
+	MUSIC::LinearIndex l_index_out_pos(0, port_out_pos->width());
+	port_out_pos->map(&l_index_out_pos, MUSIC::Index::GLOBAL, 1);
+	MUSIC::LinearIndex l_index_out_neg(0, port_out_neg->width());
+	port_out_neg->map(&l_index_out_neg, MUSIC::Index::GLOBAL, 1);
 }
 
 void
@@ -176,7 +179,10 @@ RosEventSensorAdapter::eventArrayCallback(const dvs_msgs::EventArray msg) {
 //#if DEBUG_EVENT_TRANSFORMATION
 //		std::cout << "event: ts = " << last_tick_time << ", index = " << index << std::endl;
 //#endif
-		port_out->insertEvent(last_tick_time+0.002, MUSIC::GlobalIndex(index));
+        if (event.polarity)
+		   port_out_pos->insertEvent(last_tick_time+0.002, MUSIC::GlobalIndex(index));
+		else
+		   port_out_neg->insertEvent(last_tick_time+0.002, MUSIC::GlobalIndex(index));
 	}
 #if BENCHMARK_ROS_CALLBACK
 	clock_gettime(CLOCK_MONOTONIC, &finish);
