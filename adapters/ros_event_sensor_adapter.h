@@ -18,6 +18,7 @@ const double DEFAULT_TIMESTEP = 1e-3;
 const double DEFAULT_SENSOR_UPDATE_RATE = 30;
 const double DEFAULT_RTF = 1.0;
 const std::string DEFAULT_ROS_NODE_NAME = "ros_event_sensor_node";
+const bool DEFAULT_POLARITY = false;
 
 class RosEventSensorAdapter {
 public:
@@ -33,6 +34,7 @@ private:
     ros::Subscriber subscriber;
     std::string ros_node_name;
     double rtf;
+    bool sensor_use_polarity;
 
     MPI::Intracomm comm;
     MUSIC::Setup* setup;

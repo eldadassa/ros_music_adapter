@@ -55,6 +55,7 @@ RosEventSensorAdapter::init(int argc, char** argv) {
 	sensor_update_rate = DEFAULT_SENSOR_UPDATE_RATE;
 	ros_node_name = DEFAULT_ROS_NODE_NAME;
 	rtf = DEFAULT_RTF;
+	sensor_use_polarity = DEFAULT_POLARITY;
 
 	// MUSIC before ROS to read the config first!
 	initMUSIC(argc, argv);
@@ -79,9 +80,11 @@ RosEventSensorAdapter::initMUSIC(int argc, char** argv) {
 	setup->config("sensor_update_rate", &sensor_update_rate);
 	setup->config("ros_node_name", &ros_node_name);
 	setup->config("rtf", &rtf);
+	setup->config("sensor_use_polarity", &sensor_use_polarity);
 
 	port_out_pos = setup->publishEventOutput("out_pos");
-	port_out_neg = setup->publishEventOutput("out_neg");
+	if (sensor_use_polarity)
+	   port_out_neg = setup->publishEventOutput("out_neg");
 
 	comm = setup->communicator();
 	int rank = comm.Get_rank();
@@ -94,8 +97,10 @@ RosEventSensorAdapter::initMUSIC(int argc, char** argv) {
 	// map linear index to event out port
 	MUSIC::LinearIndex l_index_out_pos(0, port_out_pos->width());
 	port_out_pos->map(&l_index_out_pos, MUSIC::Index::GLOBAL, 1);
-	MUSIC::LinearIndex l_index_out_neg(0, port_out_neg->width());
-	port_out_neg->map(&l_index_out_neg, MUSIC::Index::GLOBAL, 1);
+	if (sensor_use_polarity) {
+	   MUSIC::LinearIndex l_index_out_neg(0, port_out_neg->width());
+	   port_out_neg->map(&l_index_out_neg, MUSIC::Index::GLOBAL, 1);
+	 }
 }
 
 void
@@ -179,7 +184,7 @@ RosEventSensorAdapter::eventArrayCallback(const dvs_msgs::EventArray msg) {
 //#if DEBUG_EVENT_TRANSFORMATION
 //		std::cout << "event: ts = " << last_tick_time << ", index = " << index << std::endl;
 //#endif
-        if (event.polarity)
+    if (!sensor_use_polarity || event.polarity)
 		   port_out_pos->insertEvent(last_tick_time+0.002, MUSIC::GlobalIndex(index));
 		else
 		   port_out_neg->insertEvent(last_tick_time+0.002, MUSIC::GlobalIndex(index));
