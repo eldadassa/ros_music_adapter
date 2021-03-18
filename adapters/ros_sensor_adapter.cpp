@@ -3,6 +3,8 @@
 #include "rtclock.h"
 
 #include <math.h>
+#include <regex>
+
 #define PI 3.14159265
 
 static void*
@@ -25,11 +27,11 @@ main(int argc, char** argv)
     // together.
     if (ros_adapter.ratesMatch (0.001))
     {
-	    ros_adapter.runROSMUSIC();
+      ros_adapter.runROSMUSIC();
     }
     else
     {
-        pthread_t t;
+      pthread_t t;
 	    pthread_create (&t, NULL, ros_thread, &ros_adapter);
 
     	ros_adapter.runMUSIC();
@@ -69,6 +71,8 @@ RosSensorAdapter::init(int argc, char** argv)
 void
 RosSensorAdapter::initROS(int argc, char** argv)
 {
+    //std::cout << "initROS" << std::endl;
+
     ros::init(argc, argv, ros_node_name);
     ros::start();
 
@@ -85,7 +89,7 @@ RosSensorAdapter::initROS(int argc, char** argv)
             subscriber = n.subscribe(ros_topic, 1000, &RosSensorAdapter::float64MultiArrayCallback, this);
             break;
         case LinkStates:
-            subscriber = n.subscribe(ros_topic, 1000, &RosSensorAdapter::gazeboLinkStatesAzzCallback, this);
+            subscriber = n.subscribe(ros_topic, 1000, &RosSensorAdapter::gazeboLinkStatesCallback, this);
             break;
     }
 }
@@ -93,7 +97,9 @@ RosSensorAdapter::initROS(int argc, char** argv)
 void
 RosSensorAdapter::initMUSIC(int argc, char** argv)
 {
-    setup = new MUSIC::Setup (argc, argv);
+  //std::cout << "initMUSIC" << std::endl;
+
+  setup = new MUSIC::Setup (argc, argv);
 
   setup->config("ros_topic", &ros_topic);
   setup->config("stoptime", &stoptime);
@@ -104,6 +110,8 @@ RosSensorAdapter::initMUSIC(int argc, char** argv)
 
     std::string _msg_type;
     setup->config("message_type", &_msg_type);
+
+    //std::cout << "_msg_type: "<<_msg_type<< std::endl;//debug
 
     if (_msg_type.compare("Laserscan") == 0){
         msg_type = Laserscan;
@@ -116,7 +124,33 @@ RosSensorAdapter::initMUSIC(int argc, char** argv)
     }
     else if (_msg_type.compare("LinkStates") == 0){
         msg_type = LinkStates;
-        setup->config("link_name", &link_name);
+        std::string link_names, link_infs;
+        setup->config("link_names", &link_names);
+        setup->config("link_information", &link_infs);
+
+        link_name_vec = split(link_names, ",");
+        std::vector<std::string> link_inf_strs = split(link_infs, ",");
+
+        //std::cout << "link_names: "<<link_name_vec[0]<<" "<<link_name_vec[1]<<std::endl; //debug
+        //std::cout << "link_information: "<<link_inf_strs[0]<<" "<<link_inf_strs[1]<< std::endl; //debug
+
+        for (int i = 0; i < link_inf_strs.size(); ++i)
+        {
+           if (link_inf_strs[i].compare("position") == 0){
+             //std::cout << "position1"<<std::endl;//debug
+              link_inf_vec.push_back(Position);
+              //std::cout << "position2"<<std::endl;//debug
+           }
+           else if (link_inf_strs[i].compare("azz") == 0){
+             //std::cout << "azz1"<<std::endl;//debug
+              link_inf_vec.push_back(Azz);
+              //std::cout << "azz2"<<std::endl;//debug
+           }
+           else {
+             std::cout << "ERROR: link information unknown" << std::endl;
+             finalize();
+           }
+        }
     }
     else
     {
@@ -124,7 +158,7 @@ RosSensorAdapter::initMUSIC(int argc, char** argv)
         finalize();
     }
 
-
+    //std::cout << "publishContOutput" << std::endl;//debug
     MUSIC::ContOutputPort* port_out = setup->publishContOutput ("out");
 
     comm = setup->communicator ();
@@ -291,41 +325,69 @@ RosSensorAdapter::float64MultiArrayCallback(const std_msgs::Float64MultiArray ms
 }
 
 void
-RosSensorAdapter::gazeboLinkStatesAzzCallback(const gazebo_msgs::LinkStates &msg)
+RosSensorAdapter::gazeboLinkStatesCallback(const gazebo_msgs::LinkStates &msg)
 {
     pthread_mutex_lock(&data_mutex);
 
-    int link_indx = -1;
-    for (int i = 0; i < msg.name.size(); ++i)
+    int data_indx = 0;
+    for (int j = 0; j < link_name_vec.size(); ++j)
     {
-        if (msg.name[i] == link_name)
-           //ROS_INFO("msg name: [%s]\n", msg.name[i].c_str());
-           link_indx = i;
-    }
+       int link_indx = -1;
+       for (int i = 0; i < msg.name.size(); ++i)
+       {
+          if (msg.name[i] == link_name_vec[j])
+              //ROS_INFO("msg name: [%s]\n", msg.name[i].c_str());
+              link_indx = i;
+       }
 
-   if (link_indx == -1)
-   {
-    //  ROS_ERROR_STREAM("Failed to find link "<<link_name<<".");
-     std::cout <<"Failed to find link "<<link_name<<"."<<std::endl;
-     comm.Abort (1);
-      //return;
-   }
+       if (link_indx == -1)
+       {
+         //  ROS_ERROR_STREAM("Failed to find link "<<link_name<<".");
+         std::cout <<"Failed to find link "<<link_name_vec[j]<<"."<<std::endl;
+         comm.Abort (1);
+          //return;
+       }
 
-   //ROS_INFO("indx: %d", link_indx);
-   //ROS_INFO("orientation- x: %f, y: %f, z: %f, w: %f", msg.pose[link_indx].orientation.x, msg.pose[link_indx].orientation.y, msg.pose[link_indx].orientation.z, msg.pose[link_indx].orientation.w);
+       if (link_inf_vec.size() > j) {
 
-   //Calculating azz - caculating rotation angle assuming the rotation is around the z axis
-   double theta = 2.0 * atan2( sqrt(pow(msg.pose[link_indx].orientation.x,2) +
-    pow(msg.pose[link_indx].orientation.y,2) + pow(msg.pose[link_indx].orientation.z,2)),
-    msg.pose[link_indx].orientation.w) - PI/2;
+         switch (link_inf_vec[j])
+         {
+           case Position:
+              if (data_indx+2 < datasize) {
+                 data[data_indx++] = msg.pose[link_indx].position.x;
+                 data[data_indx++] = msg.pose[link_indx].position.y;
+                 data[data_indx++] = msg.pose[link_indx].position.z;
+               }
+              break;
+           case Azz:
+              //ROS_INFO("indx: %d", link_indx);
+              //ROS_INFO("orientation- x: %f, y: %f, z: %f, w: %f", msg.pose[link_indx].orientation.x, msg.pose[link_indx].orientation.y, msg.pose[link_indx].orientation.z, msg.pose[link_indx].orientation.w);
 
-    data[0] = theta;
+              //Calculating azz - caculating rotation angle assuming the rotation is around the z axis
+              double theta = 2.0 * atan2( sqrt(pow(msg.pose[link_indx].orientation.x,2) +
+              pow(msg.pose[link_indx].orientation.y,2) + pow(msg.pose[link_indx].orientation.z,2)),
+              msg.pose[link_indx].orientation.w) - PI/2;
 
+              if (data_indx < datasize)
+                 data[data_indx++] = theta;
 
-   pthread_mutex_unlock(&data_mutex);
+              break;
+         }
+       }
+  }
+
+  pthread_mutex_unlock(&data_mutex);
 }
 
 void RosSensorAdapter::finalize(){
     runtime->finalize();
     delete runtime;
+}
+
+std::vector<std::string>RosSensorAdapter::split(const std::string str, const std::string regex_str)
+{
+    std::regex regexz(regex_str);
+    std::vector<std::string> list(std::sregex_token_iterator(str.begin(), str.end(), regexz, -1),
+                                  std::sregex_token_iterator());
+    return list;
 }

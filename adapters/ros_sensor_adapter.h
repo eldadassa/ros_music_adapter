@@ -15,14 +15,15 @@
 
 #include <iostream>
 
-#define DEBUG_OUTPUT false 
+#define DEBUG_OUTPUT false
 
 const double DEFAULT_TIMESTEP = 1e-3;
 const double DEFAULT_SENSOR_UPDATE_RATE = 30;
 const double DEFAULT_RTF = 1.0;
 const std::string DEFAULT_ROS_NODE_NAME = "ros_sensor_node";
 
-enum msg_types {Laserscan, Twist, Float64MultiArray, LinkStates}; 
+enum msg_types {Laserscan, Twist, Float64MultiArray, LinkStates};
+enum link_information_type {Position, Azz};
 
 class RosSensorAdapter
 {
@@ -39,7 +40,8 @@ class RosSensorAdapter
         ros::Subscriber subscriber;
         std::string ros_node_name;
         double rtf;
-        std::string link_name;
+        std::vector<std::string> link_name_vec;
+        std::vector<link_information_type> link_inf_vec;
 
         MPI::Intracomm comm;
         MUSIC::Setup* setup;
@@ -60,6 +62,7 @@ class RosSensorAdapter
         void laserscanCallback(const sensor_msgs::LaserScanConstPtr& msg);
         void twistCallback(const geometry_msgs::Twist msg);
         void float64MultiArrayCallback(const std_msgs::Float64MultiArray msg);
-        void gazeboLinkStatesAzzCallback(const gazebo_msgs::LinkStates &msg);
+        void gazeboLinkStatesCallback(const gazebo_msgs::LinkStates &msg);
 
+        std::vector<std::string> split(const std::string str, const std::string regex_str);
 };
