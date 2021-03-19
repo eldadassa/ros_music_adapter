@@ -59,6 +59,7 @@ add_executable(nef_encoder encoder/nef_encoder.cpp)
 add_executable(connect_adapter adapters/connect.cpp)
 add_executable(rate_encoder encoder/rate_encoder.cpp)
 add_executable(poisson_encoder encoder/poisson_encoder.cpp)
+add_executable(retina_filter filters/retina_event_filter.cpp)
 
 target_link_libraries(ros_command_adapter ${catkin_LIBRARIES} ${MUSIC_LIBRARIES} ${PTHREAD} ${MPI_LIBRARIES} ${JSONCPP_LIBRARY} rtclock)
 target_link_libraries(ros_sensor_adapter ${catkin_LIBRARIES} ${MUSIC_LIBRARIES} ${PTHREAD} ${MPI_LIBRARIES} rtclock)
@@ -68,6 +69,7 @@ target_link_libraries(nef_encoder ${MUSIC_LIBRARIES} ${MPI_LIBRARIES})
 target_link_libraries(rate_encoder ${MUSIC_LIBRARIES} ${MPI_LIBRARIES}) 
 target_link_libraries(poisson_encoder ${MUSIC_LIBRARIES} ${MPI_LIBRARIES})
 target_link_libraries(connect_adapter ${MUSIC_LIBRARIES} ${MPI_LIBRARIES} ${JSONCPP_LIBRARY} ${GSL} ${BLAS})
+target_link_libraries(retina_filter ${MUSIC_LIBRARIES} ${MPI_LIBRARIES})
 
 # COPY PYTHON FILES TO ROOT DIRECTORY
 # TODO what for?
@@ -82,5 +84,6 @@ install(TARGETS
     rate_encoder
     poisson_encoder
     connect_adapter
+    retina_filter
     RUNTIME DESTINATION bin
 )
