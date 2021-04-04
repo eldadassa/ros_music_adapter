@@ -13,13 +13,13 @@ int main(int argc, char** argv)
 void RetinaFilter::init(int argc, char** argv)
 {
     std::cout << "initializing retina filter" << std::endl;
-    
+
     timestep = DEFAULT_TIMESTEP;
     input_sensor_xdim = 16;
     input_sensor_ydim = 16;
     periphery_downsample_factor = 1;
     fovea_dim = 4;
-    
+
     num_spikes0 = 0;
 
     // init MUSIC to read config
@@ -80,11 +80,11 @@ void RetinaFilter::initMUSIC(int argc, char** argv)
     // map linear index to event in port
     MUSIC::LinearIndex l_index_in(0, size_spike_data_in);
     port_in->map(&l_index_in, this, acceptable_latency, 1);
-    
-    // map linear index to event out port 
+
+    // map linear index to event out port
     MUSIC::LinearIndex l_index_out(0, size_spike_data_out);
     port_out->map(&l_index_out, MUSIC::Index::GLOBAL, 1);
-    
+
     MPI::COMM_WORLD.Barrier();
     runtime = new MUSIC::Runtime (setup, timestep);
 }
@@ -126,23 +126,23 @@ void RetinaFilter::runMUSIC()
             periphry_x = receptorx >> periphery_downsample_factor;
             periphry_y = receptory >> periphery_downsample_factor;
             periphry_index = periphry_y*periphery_xdim + periphry_x;
-            
-            port_out->insertEvent(t_spike, MUSIC::GlobalIndex(periphry_index));
+
+            port_out->insertEvent(t_spike+0.002, MUSIC::GlobalIndex(periphry_index));
 
             if (receptorx >= fovea_min_x && receptorx < fovea_max_x &&
-                receptory >= fovea_min_y && receptory < fovea_max_y) 
+                receptory >= fovea_min_y && receptory < fovea_max_y)
             {
                uint fovea_indx = periphery_n + (receptory-fovea_min_y)*fovea_dim + (receptorx-fovea_min_x);
-               port_out->insertEvent(t_spike, MUSIC::GlobalIndex(fovea_indx));
+               port_out->insertEvent(t_spike+0.002, MUSIC::GlobalIndex(fovea_indx));
             }
-            
+
             spikes.pop (); // remove spike from queue
             ++num_spikes_transfered;
         }
 
-       
+
 //#if DEBUG_OUTPUT
-       
+
 //#endif
         runtime->tick();
     }
